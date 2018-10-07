@@ -206,7 +206,7 @@ public:
 
         // reset linear solver
         std::string mode = "dDDI";
-        std::string solverconfig = "./";
+        std::string solverconfig = "/configs/current-config.info";
         amgxSolver_.initialize(MPI_COMM_WORLD, mode, solverconfig);
     }
 
