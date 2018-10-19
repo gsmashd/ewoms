@@ -238,6 +238,11 @@ public:
         petscRhs_->assign( B );
         petscX_->clear();
 
+        // reset linear solver
+        std::string mode = "dDDI";
+        std::string solverconfig = "/configs/current-config.info";
+        amgxSolver_.initialize(MPI_COMM_WORLD, mode, solverconfig);
+
         // solve with right hand side rhs and store in x
         Vec& p = *(petscX_->petscVec());
         Vec& rhs = *(petscRhs_->petscVec());
