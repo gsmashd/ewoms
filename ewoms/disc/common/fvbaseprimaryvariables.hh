@@ -56,10 +56,9 @@ class FvBasePrimaryVariables
     enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
 
     typedef Opm::MathToolbox<Evaluation> Toolbox;
-public:
-
     typedef Dune::FieldVector<Scalar, numEq> ParentType;
 
+public:
     FvBasePrimaryVariables()
         : ParentType()
     { Opm::Valgrind::SetUndefined(*this); }
