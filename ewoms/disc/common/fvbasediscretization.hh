@@ -77,15 +77,12 @@
 #include <dune/fem/function/blockvectorfunction.hh>
 #include <dune/fem/misc/capabilities.hh>
 
-#include <dune/fem/operator/linear/spoperator.hh>
-
 #if HAVE_PETSC
 #include <dune/fem/operator/linear/petscoperator.hh>
 #endif
-
 #include <dune/fem/operator/linear/istloperator.hh>
 #include <dune/fem/operator/linear/spoperator.hh>
-#endif
+#endif // endif HAVE_DUNE_FEM
 
 #include <limits>
 #include <list>
