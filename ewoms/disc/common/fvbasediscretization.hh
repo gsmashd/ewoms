@@ -62,6 +62,7 @@
 #include <opm/material/common/Unused.hpp>
 #include <opm/material/common/Exceptions.hpp>
 
+#include <dune/common/version.hh>
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 #include <dune/istl/bvector.hh>
@@ -1800,7 +1801,10 @@ public:
 
         auxMod->applyInitial();
 
+#if DUNE_VERSION_NEWER( DUNE_FEM, 2, 7 )
         discreteFunctionSpace_.extendSize( asImp_().numAuxiliaryDof() );
+#endif
+
     }
 
     /*!
