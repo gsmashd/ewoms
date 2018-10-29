@@ -158,10 +158,13 @@ private:
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace> DiscreteFunction;
 
 #if USE_DUNE_FEM_PETSC_SOLVERS
+#warning "Using Dune-Fem PETSc solvers"
     typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > LinearOperator;
 #elif USE_DUNE_FEM_VIENNACL_SOLVERS
+#warning "Using Dune-Fem ViennaCL solvers"
     typedef Dune::Fem::SparseRowLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #else
+#warning "Using Dune-Fem ISTL solvers"
     typedef Dune::Fem::ISTLLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #endif
 
@@ -190,6 +193,7 @@ public:
     typedef FemMatrixBackend type;
 };
 #else
+#warning "Using native ISTL solvers"
 //! Set the type of a global Jacobian matrix from the solution types
 SET_PROP(FvBaseDiscretization, JacobianMatrix)
 {
