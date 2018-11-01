@@ -84,6 +84,9 @@ NEW_PROP_TAG(PreconditionerOrder);
 //! The relaxation factor of the preconditioner
 NEW_PROP_TAG(PreconditionerRelaxation);
 
+//! Filename for AMGX solver configuration
+NEW_PROP_TAG(AmgxSolverConfigFileName);
+
 //! make the linear solver shut up by default
 SET_INT_PROP(AmgXSolverBackend, LinearSolverVerbosity, 0);
 
@@ -103,6 +106,9 @@ SET_SCALAR_PROP(AmgXSolverBackend, PreconditionerRelaxation, 1.0);
 
 //! make the linear solver shut up by default
 //SET_SCALAR_PROP(AmgXSolverBackend, LinearSolverTolerance, 0.01);
+
+//! set default filename for AMGX solver configuratrion
+SET_STRING_PROP(AmgXSolverBackend, AmgxSolverConfigFileName, "");
 
 END_PROPERTIES
 
@@ -190,6 +196,9 @@ public:
                              "The order of the preconditioner");
         EWOMS_REGISTER_PARAM(TypeTag, Scalar, PreconditionerRelaxation,
                              "The relaxation factor of the preconditioner");
+
+        EWOMS_REGISTER_PARAM(TypeTag, std::string, AmgxSolverConfigFileName,
+                             "The name of the file which contains the AMGX solver configuration");
     }
 
     /*!
@@ -206,7 +215,7 @@ public:
 
         // reset linear solver
         std::string mode = "dDDI";
-        std::string solverconfig = "./";
+        std::string solverconfig = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverConfigFileName);
         amgxSolver_.initialize(MPI_COMM_WORLD, mode, solverconfig);
     }
 
