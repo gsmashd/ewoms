@@ -199,6 +199,8 @@ public:
 
         EWOMS_REGISTER_PARAM(TypeTag, std::string, AmgxSolverConfigFileName,
                              "The name of the file which contains the AMGX solver configuration");
+
+
     }
 
     /*!
@@ -217,6 +219,8 @@ public:
         std::string mode = "dDDI";
         std::string solverconfig = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverConfigFileName);
         amgxSolver_.initialize(MPI_COMM_WORLD, mode, solverconfig);
+        // set up the matrix used by AmgX
+        amgxSolver_.setA( op.petscMatrix() );
     }
 
     void prepareRhs(const LinearOperator& linOp, Vector& b)
