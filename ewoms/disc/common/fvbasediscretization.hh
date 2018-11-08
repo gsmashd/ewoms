@@ -62,6 +62,7 @@
 #include <opm/material/common/Unused.hpp>
 #include <opm/material/common/Exceptions.hpp>
 
+#include <dune/common/version.hh>
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 #include <dune/istl/bvector.hh>
@@ -79,10 +80,9 @@
 #if HAVE_PETSC
 #include <dune/fem/operator/linear/petscoperator.hh>
 #endif
-
 #include <dune/fem/operator/linear/istloperator.hh>
 #include <dune/fem/operator/linear/spoperator.hh>
-#endif
+#endif // endif HAVE_DUNE_FEM
 
 #include <limits>
 #include <list>
@@ -158,8 +158,13 @@ private:
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace> DiscreteFunction;
 
 #if USE_DUNE_FEM_PETSC_SOLVERS
+#warning "Using Dune-Fem PETSc solvers"
     typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > LinearOperator;
+#elif USE_DUNE_FEM_VIENNACL_SOLVERS
+#warning "Using Dune-Fem ViennaCL solvers"
+    typedef Dune::Fem::SparseRowLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #else
+#warning "Using Dune-Fem ISTL solvers"
     typedef Dune::Fem::ISTLLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #endif
 
@@ -188,6 +193,7 @@ public:
     typedef FemMatrixBackend type;
 };
 #else
+#warning "Using native ISTL solvers"
 //! Set the type of a global Jacobian matrix from the solution types
 SET_PROP(FvBaseDiscretization, JacobianMatrix)
 {
@@ -272,7 +278,7 @@ SET_TYPE_PROP(FvBaseDiscretization, ConstraintsContext, Ewoms::FvBaseConstraints
  * \brief The OpenMP threads manager
  */
 SET_TYPE_PROP(FvBaseDiscretization, ThreadManager, Ewoms::ThreadManager<TypeTag>);
-SET_INT_PROP(FvBaseDiscretization, ThreadsPerProcess, -1);
+SET_INT_PROP(FvBaseDiscretization, ThreadsPerProcess, 1);
 SET_BOOL_PROP(FvBaseDiscretization, UseLinearizationLock, true);
 
 /*!
@@ -1796,7 +1802,10 @@ public:
 
         auxMod->applyInitial();
 
+#if DUNE_VERSION_NEWER( DUNE_FEM, 2, 7 )
         discreteFunctionSpace_.extendSize( asImp_().numAuxiliaryDof() );
+#endif
+
     }
 
     /*!

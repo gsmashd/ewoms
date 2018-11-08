@@ -277,22 +277,22 @@ public:
         GenericGuard<decltype(cleanupSolverFn)> solverGuard(cleanupSolverFn);
 
         // run the linear solver and have some fun
-        bool result = asImp_().runSolver_(solver);
+        auto result = asImp_().runSolver_(solver);
         // store number of iterations used
-        lastIterations_ = solver->report().iterations();
+        lastIterations_ = result.second;
 
         // copy the result back to the non-overlapping vector
         overlappingx_->assignTo(x);
 
         // return the result of the solver
-        return result;
+        return result.first;
     }
 
     /*!
      * \brief Return number of iterations used during last solve.
      */
     size_t iterations () const {
-        return asImp_().iterations_();
+        return lastIterations_;
     }
 
 protected:
@@ -301,8 +301,6 @@ protected:
 
     const Implementation& asImp_() const
     { return *static_cast<const Implementation *>(this); }
-
-    size_t iterations_() const { return lastIterations_; }
 
     void prepare_(const JacobianMatrix& M)
     {

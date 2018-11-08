@@ -348,6 +348,9 @@ public:
                 trans_[isId_(elemIdx, outsideElemIdx)] = trans;
             }
         }
+
+        // potentially overwrite and/or modify  transmissibilities based on input from deck
+        updateFromEclState_();
     }
 
     /*!
@@ -389,6 +392,81 @@ public:
     { return thermalHalfTransBoundary_.at(std::make_pair(insideElemIdx, boundaryFaceIdx)); }
 
 private:
+
+    void updateFromEclState_(){
+        const auto& gridView = vanguard_.gridView();
+        const auto& cartMapper = vanguard_.cartesianIndexMapper();
+        const auto& cartDims = cartMapper.cartesianDimensions();
+        const auto& properties = vanguard_.eclState().get3DProperties();
+
+#if DUNE_VERSION_NEWER(DUNE_GRID, 2,6)
+        ElementMapper elemMapper(gridView, Dune::mcmgElementLayout());
+#else
+        ElementMapper elemMapper(gridView);
+#endif
+
+        const auto& inputTranx = properties.getDoubleGridProperty("TRANX");
+        const auto& inputTrany = properties.getDoubleGridProperty("TRANY");
+        const auto& inputTranz = properties.getDoubleGridProperty("TRANZ");
+
+        // compute the transmissibilities for all intersections
+        auto elemIt = gridView.template begin</*codim=*/ 0>();
+        const auto& elemEndIt = gridView.template end</*codim=*/ 0>();
+
+        for (; elemIt != elemEndIt; ++elemIt) {
+            const auto& elem = *elemIt;
+            auto isIt = gridView.ibegin(elem);
+            const auto& isEndIt = gridView.iend(elem);
+            for (; isIt != isEndIt; ++ isIt) {
+                // store intersection, this might be costly
+                const auto& intersection = *isIt;
+                if (!intersection.neighbor())
+                    continue; // intersection is on the domain boundary
+
+                unsigned c1 = elemMapper.index(intersection.inside());
+                unsigned c2 = elemMapper.index(intersection.outside());
+
+                if (c1 > c2)
+                    continue; // we only need to handle each connection once, thank you.
+
+                auto isId = isId_(c1, c2);
+
+                int gc1 = std::min(cartMapper.cartesianIndex(c1), cartMapper.cartesianIndex(c2));
+                int gc2 = std::max(cartMapper.cartesianIndex(c1), cartMapper.cartesianIndex(c2));
+
+                if (gc2 - gc1 == 1) {
+                    if (inputTranx.deckAssigned()) {
+                        // set simulator internal transmissibilities to values from inputTranx
+                        trans_[isId] = inputTranx.iget(gc1);
+                    } else {
+                        // Scale transmissibilities with scale factor from inputTranx
+                        trans_[isId] *= inputTranx.iget(gc1);
+                    }
+                }
+                else if (gc2 - gc1 == cartDims[0]) {
+                    if (inputTrany.deckAssigned()) {
+                        // set simulator internal transmissibilities to values from inputTrany
+                        trans_[isId] = inputTrany.iget(gc1);
+                    } else {
+                        // Scale transmissibilities with scale factor from inputTrany
+                        trans_[isId] *= inputTrany.iget(gc1);
+                    }
+                }
+                else if (gc2 - gc1 == cartDims[0]*cartDims[1]) {
+                    if (inputTranz.deckAssigned()) {
+                        // set simulator internal transmissibilities to values from inputTranz
+                        trans_[isId] = inputTranz.iget(gc1);
+                    } else {
+                        // Scale transmissibilities with scale factor from inputTranz
+                        trans_[isId] *= inputTranz.iget(gc1);
+                    }
+                }
+                //else.. We don't support modification of NNC at the moment.
+            }
+        }
+    }
+
+
     template <class Intersection>
     void computeFaceProperties( const Intersection& intersection,
                                 const int insideElemIdx,
@@ -567,22 +645,29 @@ private:
 
     void minPvFillNtg_(std::vector<double>& averageNtg) const {
 
+
         // compute volume weighted arithmetic average of NTG for
         // cells merged as an result of minpv.
         const auto& eclState = vanguard_.eclState();
         const auto& eclGrid = eclState.getInputGrid();
-        const auto& porv = eclState.get3DProperties().getDoubleGridProperty("PORV").getData();
-        const auto& actnum = eclState.get3DProperties().getIntGridProperty("ACTNUM").getData();
+
         const std::vector<double>& ntg =
             eclState.get3DProperties().getDoubleGridProperty("NTG").getData();
 
+        averageNtg = ntg;
+
+        bool opmfil = eclGrid.getMinpvMode() == Opm::MinpvMode::OpmFIL;
+
+        // just return the unmodified ntg if opmfil is not used
+        if (!opmfil)
+            return;
+
+        const auto& porv = eclState.get3DProperties().getDoubleGridProperty("PORV").getData();
+        const auto& actnum = eclState.get3DProperties().getIntGridProperty("ACTNUM").getData();
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
         const auto& cartDims = cartMapper.cartesianDimensions();
         assert(dimWorld > 1);
         const size_t nxny = cartDims[0] * cartDims[1];
-
-        averageNtg = ntg;
-
         for (size_t cartesianCellIdx = 0; cartesianCellIdx < ntg.size(); ++cartesianCellIdx)
         {
             // use the original ntg values for the inactive cells
@@ -597,7 +682,7 @@ private:
             int cartesianCellIdxAbove = cartesianCellIdx - nxny;
             while ( cartesianCellIdxAbove >= 0 &&
                  actnum[cartesianCellIdxAbove] > 0 &&
-                 porv[cartesianCellIdxAbove] < eclGrid.getMinpvValue() ) {
+                 porv[cartesianCellIdxAbove] < eclGrid.getMinpvVector()[cartesianCellIdxAbove] ) {
 
                 // Volume weighted arithmetic average of NTG
                 const double cellAboveVolume = eclGrid.getCellVolume(cartesianCellIdxAbove);

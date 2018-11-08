@@ -27,21 +27,34 @@
  */
 #include "config.h"
 
+#include <dune/common/version.hh>
+
 #if HAVE_DUNE_FEM
+#if DUNE_VERSION_NEWER( DUNE_FEM, 2, 7)
+
+#if USE_AMGX_SOLVERS && ! HAVE_AMGXSOLVER
+#undef USE_AMGX_SOLVERS
+#endif
 
 #if ENABLE_DUNE_FEM_PETSC_SOLVERS && HAVE_PETSC
 #define USE_DUNE_FEM_PETSC_SOLVERS 1
+#elif ENABLE_DUNE_FEM_VIENNACL_SOLVERS && HAVE_VIENNACL
+#define USE_DUNE_FEM_VIENNACL_SOLVERS 1
 #elif ENABLE_DUNE_FEM_ISTL_SOLVERS
 #define USE_DUNE_FEM_ISTL_SOLVERS 1
 #endif
 
-#if USE_DUNE_FEM_ISTL_SOLVERS || USE_DUNE_FEM_PETSC_SOLVERS
+#if USE_DUNE_FEM_ISTL_SOLVERS || USE_DUNE_FEM_PETSC_SOLVERS || USE_DUNE_FEM_VIENNACL_SOLVERS
 #define USE_DUNE_FEM_SOLVERS 1
 #else
 #define USE_DUNE_FEM_SOLVERS 0
 #endif
 
-#endif
+#else  // DUNE_VERSION_NEWER
+#undef USE_AMGX_SOLVERS
+#undef USE_DUNE_FEM_SOLVERS
+#endif // endif DUNE_VERSION_NEWER
+#endif // endif HAVE_DUNE_FEM
 
 #include <opm/material/common/quad.hpp>
 #include <ewoms/common/start.hh>

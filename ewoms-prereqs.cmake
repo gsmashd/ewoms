@@ -17,6 +17,8 @@ set (ewoms_CONFIG_VAR
   HAVE_AMGXSOLVER
   HAVE_ECL_INPUT
   HAVE_ECL_OUTPUT
+  HAVE_VIENNACL
+  HAVE_OPENCL
   DUNE_AVOID_CAPABILITIES_IS_PARALLEL_DEPRECATION_WARNING
   )
 
@@ -42,6 +44,8 @@ set (ewoms_DEPS
   "PETSc"
   # AMGX wrapper using PETSc
   "AmgXSolver"
+  # ViennaCL
+  "ViennaCL"
   # valgrind client requests
   "Valgrind"
   # quadruple precision floating point calculations

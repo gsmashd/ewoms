@@ -143,10 +143,19 @@ EwomsAddApplication(ebos_fempetsc
                     EXE_NAME ebos_fempetsc
                     CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
 
+if( VIENNACL_FOUND)
+EwomsAddApplication(ebos_femviennacl
+                    SOURCES ebos/ebos_femviennacl.cc
+                    EXE_NAME ebos_femviennacl
+                    CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
+endif()
+
+if ( AMGXSOLVER_FOUND )
 EwomsAddApplication(ebos_amgxpetsc
                     SOURCES ebos/ebos_amgxpetsc.cc
                     EXE_NAME ebos_amgxpetsc
                     CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
+endif()
 
 if(OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
   install(TARGETS ebos DESTINATION bin)
@@ -181,10 +190,10 @@ opm_add_test(waterair_pvs_ni
              TEST_ARGS --grid-global-refinements=1)
 
 opm_add_test(lens_immiscible_vcfv_ad
-             TEST_ARGS --end-time=3000 --threads-per-process=1)
+             TEST_ARGS --end-time=3000)
 
 opm_add_test(lens_immiscible_vcfv_fd
-             TEST_ARGS --end-time=3000 --threads-per-process=1)
+             TEST_ARGS --end-time=3000)
 
 opm_add_test(lens_immiscible_ecfv_ad
              TEST_ARGS --end-time=3000)
@@ -250,10 +259,10 @@ foreach(tapp co2injection_flash_ni_vcfv
   opm_add_test(${tapp})
 endforeach()
 
-opm_add_test(reservoir_blackoil_vcfv TEST_ARGS --end-time=8750000 --threads-per-process=1)
-opm_add_test(reservoir_blackoil_ecfv TEST_ARGS --end-time=8750000 --threads-per-process=1)
-opm_add_test(reservoir_ncp_vcfv TEST_ARGS --end-time=8750000 --threads-per-process=1)
-opm_add_test(reservoir_ncp_ecfv TEST_ARGS --end-time=8750000 --threads-per-process=1)
+opm_add_test(reservoir_blackoil_vcfv TEST_ARGS --end-time=8750000)
+opm_add_test(reservoir_blackoil_ecfv TEST_ARGS --end-time=8750000)
+opm_add_test(reservoir_ncp_vcfv TEST_ARGS --end-time=8750000)
+opm_add_test(reservoir_ncp_ecfv TEST_ARGS --end-time=8750000)
 
 opm_add_test(fracture_discretefracture
              CONDITION ${DUNE_ALUGRID_FOUND}
@@ -293,7 +302,7 @@ opm_add_test(lens_immiscible_vcfv_fd_parallel
              PROCESSORS 4
              CONDITION ${MPI_FOUND}
              DRIVER_ARGS --parallel-simulation=4
-             TEST_ARGS --end-time=250 --initial-time-step-size=250 --threads-per-process=1)
+             TEST_ARGS --end-time=250 --initial-time-step-size=250)
 
 opm_add_test(lens_immiscible_vcfv_ad_parallel
              EXE_NAME lens_immiscible_vcfv_ad
@@ -301,7 +310,7 @@ opm_add_test(lens_immiscible_vcfv_ad_parallel
              PROCESSORS 4
              CONDITION ${MPI_FOUND}
              DRIVER_ARGS --parallel-simulation=4
-             TEST_ARGS --end-time=250 --initial-time-step-size=250 --threads-per-process=1)
+             TEST_ARGS --end-time=250 --initial-time-step-size=250)
 
 opm_add_test(lens_immiscible_ecfv_ad_parallel
              EXE_NAME lens_immiscible_ecfv_ad
@@ -329,3 +338,6 @@ opm_add_test(tutorial1
 
 opm_add_test(test_tasklets
              DRIVER_ARGS --plain)
+
+include(OpmBashCompletion)
+opm_add_bash_completion(ebos)

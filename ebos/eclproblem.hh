@@ -485,8 +485,6 @@ public:
         , transmissibilities_(simulator.vanguard())
         , thresholdPressures_(simulator)
         , wellModel_(simulator)
-        , eclWriter_(EWOMS_GET_PARAM(TypeTag, bool, EnableEclOutput)
-                     ? new EclWriterType(simulator) : nullptr)
         , pffDofData_(simulator.gridView(), this->elementMapper())
     {
         // Tell the black-oil extensions to initialize their internal data structures
@@ -496,7 +494,6 @@ public:
         if (EWOMS_GET_PARAM(TypeTag, bool, EnableEclOutput))
             // create the ECL writer
             eclWriter_.reset(new EclWriterType(simulator));
-
     }
 
     /*!
@@ -1660,12 +1657,12 @@ private:
             // conserved, cells are not disabled due to a too small pore volume because
             // such cells still store and conduct energy.
             if (!enableEnergy && eclGrid.getMinpvMode() == Opm::MinpvMode::ModeEnum::OpmFIL) {
-                Scalar minPvValue = eclGrid.getMinpvValue();
+                const std::vector<Scalar>& minPvVector = eclGrid.getMinpvVector();
                 for (int aboveElemCartIdx = static_cast<int>(cartElemIdx) - nx*ny;
                      aboveElemCartIdx >= 0;
                      aboveElemCartIdx -= nx*ny)
                 {
-                    if (porvData[aboveElemCartIdx] >= minPvValue)
+                    if (porvData[aboveElemCartIdx] >= minPvVector[aboveElemCartIdx])
                         // the cartesian element above exhibits a pore volume which larger or
                         // equal to the minimum one
                         break;
