@@ -161,7 +161,7 @@ protected:
     template <int d, class LinOp>
     struct SolverSelector
     {
-        typedef Dune::Fem::KrylovInverseOperator< DiscreteFunction >  type;
+        typedef Dune::Fem::KrylovInverseOperator< VectorWrapperDiscreteFunction >  type;
     };
 
 #if HAVE_PETSC
@@ -308,7 +308,7 @@ public:
      */
     size_t iterations () const {
         assert( invOp_);
-        return std::abs(invOp_->iterations());
+        return invOp_->iterations();
     }
 
 protected:
