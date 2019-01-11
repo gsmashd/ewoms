@@ -383,12 +383,13 @@ private:
             tranz.data[0] = 0.0;
         }
 
-        const auto& globalGridView = globalGrid_.leafGridView();
+        typedef typename Grid::LeafGridView LeafGridView;
+        const LeafGridView& globalGridView = globalGrid_.leafGridView();
 #if DUNE_VERSION_NEWER(DUNE_GRID, 2,6)
-        typedef Dune::MultipleCodimMultipleGeomTypeMapper<GridView> ElementMapper;
+        typedef Dune::MultipleCodimMultipleGeomTypeMapper<LeafGridView> ElementMapper;
         ElementMapper globalElemMapper(globalGridView, Dune::mcmgElementLayout());
 #else
-        typedef Dune::MultipleCodimMultipleGeomTypeMapper<GridView, Dune::MCMGElementLayout> ElementMapper;
+        typedef Dune::MultipleCodimMultipleGeomTypeMapper<LeafGridView, Dune::MCMGElementLayout> ElementMapper;
         ElementMapper globalElemMapper(globalGridView);
 #endif
 
@@ -448,13 +449,14 @@ private:
         int nx = eclState().getInputGrid().getNX();
         int ny = eclState().getInputGrid().getNY();
 
-        const auto& globalGridView = globalGrid_.leafGridView();
+        typedef typename Grid::LeafGridView LeafGridView;
+        const LeafGridView& globalGridView = globalGrid_.leafGridView();
 #if DUNE_VERSION_NEWER(DUNE_GRID, 2,6)
-        typedef Dune::MultipleCodimMultipleGeomTypeMapper<GridView> ElementMapper;
+        typedef Dune::MultipleCodimMultipleGeomTypeMapper<LeafGridView> ElementMapper;
         ElementMapper globalElemMapper(globalGridView, Dune::mcmgElementLayout());
 
 #else
-        typedef Dune::MultipleCodimMultipleGeomTypeMapper<GridView, Dune::MCMGElementLayout> ElementMapper;
+        typedef Dune::MultipleCodimMultipleGeomTypeMapper<LeafGridView, Dune::MCMGElementLayout> ElementMapper;
         ElementMapper globalElemMapper(globalGridView);
 #endif
 
