@@ -82,11 +82,7 @@ class ParallelAmgBackend : public ParallelBaseBackend<TypeTag>
     typedef typename GET_PROP_TYPE(TypeTag, Simulator) Simulator;
     typedef typename GET_PROP_TYPE(TypeTag, GridView) GridView;
     typedef typename GET_PROP_TYPE(TypeTag, Overlap) Overlap;
-<<<<<<< HEAD
-    typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
-=======
     typedef typename GET_PROP_TYPE(TypeTag, SparseMatrixAdapter) SparseMatrixAdapter;
->>>>>>> master
 
     typedef typename ParentType::ParallelOperator ParallelOperator;
     typedef typename ParentType::OverlappingVector OverlappingVector;
@@ -95,12 +91,8 @@ class ParallelAmgBackend : public ParallelBaseBackend<TypeTag>
 
     static constexpr int numEq = GET_PROP_VALUE(TypeTag, NumEq);
     typedef Dune::FieldVector<LinearSolverScalar, numEq> VectorBlock;
-<<<<<<< HEAD
-    typedef typename JacobianMatrix :: block_type MatrixBlock;
-=======
     typedef typename SparseMatrixAdapter::MatrixBlock MatrixBlock;
     typedef typename SparseMatrixAdapter::IstlMatrix IstlMatrix;
->>>>>>> master
 
     typedef Dune::BlockVector<VectorBlock> Vector;
 
@@ -226,11 +218,7 @@ protected:
     std::pair<bool,int> runSolver_(std::shared_ptr<RawLinearSolver> solver)
     {
         bool converged = solver->apply(*this->overlappingx_);
-<<<<<<< HEAD
-        return std::make_pair( converged, int(solver->report().iterations()) );
-=======
         return std::make_pair(converged, int(solver->report().iterations()));
->>>>>>> master
     }
 
     void cleanupSolver_()

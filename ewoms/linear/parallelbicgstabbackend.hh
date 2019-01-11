@@ -130,13 +130,9 @@ protected:
         typedef CombinedCriterion<OverlappingVector, decltype(gridView.comm())> CCC;
 
         Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
-<<<<<<< HEAD
-        Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 1000.0;
-=======
         Scalar linearSolverAbsTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverAbsTolerance);
         if(linearSolverAbsTolerance < 0.0)
             linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100.0;
->>>>>>> master
 
         convCrit_.reset(new CCC(gridView.comm(),
                                 /*residualReductionTolerance=*/linearSolverTolerance,
@@ -160,11 +156,7 @@ protected:
     std::pair<bool,int> runSolver_(std::shared_ptr<RawLinearSolver> solver)
     {
         bool converged = solver->apply(*this->overlappingx_);
-<<<<<<< HEAD
-        return std::make_pair( converged, int(solver->report().iterations()) );
-=======
         return std::make_pair(converged, int(solver->report().iterations()));
->>>>>>> master
     }
 
     void cleanupSolver_()
