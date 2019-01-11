@@ -32,8 +32,8 @@
 #if USE_DUNE_FEM_SOLVERS
 
 #define DISABLE_AMG_DIRECTSOLVER 1
-#include <dune/fem/solver/istlsolver.hh>
-#include <dune/fem/solver/petscsolver.hh>
+#include <dune/fem/solver/istlinverseoperators.hh>
+#include <dune/fem/solver/petscinverseoperators.hh>
 #include <dune/fem/solver/krylovinverseoperators.hh>
 
 #if HAVE_VIENNACL
