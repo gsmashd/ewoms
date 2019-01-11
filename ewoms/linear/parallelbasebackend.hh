@@ -230,23 +230,6 @@ public:
         overlappingb_->sync();
     }
 
-    void prepareRhs(const JacobianMatrix& M, Vector& b)
-    {
-        // make sure that the overlapping matrix and block vectors
-        // have been created
-        prepare_(M);
-=======
->>>>>>> master
-
-        overlappingb_->assignAddBorder(b);
-
-        // copy the result back to the non-overlapping vector. This is
-        // necessary here as assignAddBorder() might modify the
-        // residual vector for the border entities and we need the
-        // "globalized" residual in b...
-        overlappingb_->assignTo(b);
-    }
-
     /*!
      * \brief Actually solve the linear system of equations.
      *

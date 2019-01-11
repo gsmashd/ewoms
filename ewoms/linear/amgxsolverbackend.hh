@@ -210,7 +210,7 @@ public:
     void eraseMatrix()
     { cleanup_(); }
 
-    void prepareMatrix(const LinearOperator& op)
+    void prepare(const LinearOperator& op, Vector& b)
     {
         Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100000.0;
@@ -221,10 +221,8 @@ public:
         amgxSolver_.initialize(MPI_COMM_WORLD, mode, solverconfig);
         // set up the matrix used by AmgX
         amgxSolver_.setA( op.petscMatrix() );
-    }
 
-    void prepareRhs(const LinearOperator& linOp, Vector& b)
-    {
+        // store pointer to right hand side
         rhs_ = &b;
     }
 

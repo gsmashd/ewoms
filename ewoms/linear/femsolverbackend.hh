@@ -147,7 +147,7 @@ protected:
 
     typedef typename GET_PROP_TYPE(TypeTag, Simulator) Simulator;
     typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
-    typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) LinearOperator;
+    typedef typename GET_PROP_TYPE(TypeTag, SparseMatrixAdapter)   LinearOperator;
     typedef typename GET_PROP_TYPE(TypeTag, GlobalEqVector) Vector;
     typedef typename GET_PROP_TYPE(TypeTag, GridView) GridView;
 
@@ -263,7 +263,7 @@ public:
     void eraseMatrix()
     { cleanup_(); }
 
-    void prepareMatrix(const LinearOperator& op)
+    void prepare(const LinearOperator& op, Vector& b)
     {
         Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100000.0;
@@ -278,10 +278,8 @@ public:
 
         // not needed
         asImp_().rescale_();
-    }
 
-    void prepareRhs(const LinearOperator& linOp, Vector& b)
-    {
+        // store pointer to right hand side
         rhs_ = &b;
     }
 

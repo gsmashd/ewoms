@@ -172,12 +172,13 @@ private:
     {
         typedef LinearOperator  ParentType;
         typedef typename LinearOperator :: MatrixType    Matrix;
+        typedef typename ParentType :: MatrixBlockType   MatrixBlock;
         template <class Simulator>
         FemMatrixBackend( const Simulator& simulator )
             : LinearOperator("eWoms::Jacobian", simulator.model().space(), simulator.model().space() )
         {}
 
-        void flush()
+        void commit()
         {
           this->flushAssembly();
         }
@@ -1989,14 +1990,6 @@ protected:
     // solution of the previous time step
     mutable IntensiveQuantitiesVector intensiveQuantityCache_[historySize];
     mutable std::vector<bool> intensiveQuantityCacheUpToDate_[historySize];
-
-    DiscreteFunctionSpace space_;
-    mutable std::array< std::unique_ptr< DiscreteFunction >, historySize > solution_;
-
-#if HAVE_DUNE_FEM
-    std::unique_ptr<RestrictProlong> restrictProlong_;
-    std::unique_ptr<AdaptationManager> adaptationManager_;
-#endif
 
     std::list<BaseOutputModule<TypeTag>*> outputModules_;
 
