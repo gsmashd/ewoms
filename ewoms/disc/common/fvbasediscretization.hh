@@ -1150,6 +1150,16 @@ public:
     SolutionVector& solution(unsigned timeIdx)
     { return solution_[timeIdx]->blockVector(); }
 
+    template <class BVector>
+    void communicate( BVector& x ) const
+    {
+#if HAVE_DUNE_FEM
+        typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, typename BVector::block_type> DF;
+        DF tmpX("temp-x", discreteFunctionSpace_, x);
+        tmpX.communicate();
+#endif
+    }
+
   protected:
     /*!
      * \copydoc solution(int) const
