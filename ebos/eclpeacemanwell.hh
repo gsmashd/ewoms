@@ -76,7 +76,7 @@ class EclPeacemanWell : public BaseAuxiliaryModule<TypeTag>
     typedef BaseAuxiliaryModule<TypeTag> AuxModule;
 
     typedef typename AuxModule::NeighborSet NeighborSet;
-    typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
+    typedef typename GET_PROP_TYPE(TypeTag, SparseMatrixAdapter) SparseMatrixAdapter;
     typedef typename GET_PROP_TYPE(TypeTag, SolutionVector) SolutionVector;
     typedef typename GET_PROP_TYPE(TypeTag, GlobalEqVector) GlobalEqVector;
 
@@ -339,20 +339,32 @@ public:
     /*!
      * \copydoc Ewoms::BaseAuxiliaryModule::linearize()
      */
-    virtual void linearize(JacobianMatrix& matrix, GlobalEqVector& residual)
+    virtual void linearize(SparseMatrixAdapter& matrix, GlobalEqVector& residual)
     {
         const SolutionVector& curSol = simulator_.model().solution(/*timeIdx=*/0);
 
+<<<<<<< HEAD
         typedef typename JacobianMatrix :: block_type MatrixBlock;
+=======
+        typedef typename SparseMatrixAdapter::MatrixBlock MatrixBlock;
+>>>>>>> master
 
         unsigned wellGlobalDofIdx = AuxModule::localToGlobalDof(/*localDofIdx=*/0);
         residual[wellGlobalDofIdx] = 0.0;
 
+<<<<<<< HEAD
         MatrixBlock diagBlock( 0.0 );
         for (unsigned i = 0; i < numModelEq; ++ i)
             diagBlock[i][i] = 1.0;
 
         MatrixBlock block( 0.0 );
+=======
+        MatrixBlock diagBlock(0.0);
+        for (unsigned i = 0; i < numModelEq; ++ i)
+            diagBlock[i][i] = 1.0;
+
+        MatrixBlock block(0.0);
+>>>>>>> master
 
         if (wellStatus() == Shut) {
             // if the well is shut, make the auxiliary DOFs a trivial equation in the
@@ -362,16 +374,27 @@ public:
             const auto& wellDofEndIt = dofVariables_.end();
 
             for (; wellDofIt != wellDofEndIt; ++ wellDofIt) {
+<<<<<<< HEAD
                 matrix.setBlock( wellGlobalDofIdx, wellDofIt->first, block );
                 matrix.setBlock( wellDofIt->first, wellGlobalDofIdx, block );
             }
             matrix.setBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock );
+=======
+                matrix.setBlock(wellGlobalDofIdx, wellDofIt->first, block);
+                matrix.setBlock(wellDofIt->first, wellGlobalDofIdx, block);
+            }
+            matrix.setBlock(wellGlobalDofIdx, wellGlobalDofIdx, diagBlock);
+>>>>>>> master
             residual[wellGlobalDofIdx] = 0.0;
             return;
         }
         else if (dofVariables_.empty()) {
             // the well does not feature any perforations on the local process
+<<<<<<< HEAD
             matrix.setBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock );
+=======
+            matrix.setBlock(wellGlobalDofIdx, wellGlobalDofIdx, diagBlock);
+>>>>>>> master
             residual[wellGlobalDofIdx] = 0.0;
             return;
         }
@@ -416,7 +439,11 @@ public:
                 // go back to the original primary variables
                 priVars[priVarIdx] -= eps;
             }
+<<<<<<< HEAD
             matrix.setBlock( wellGlobalDofIdx, gridDofIdx, block );
+=======
+            matrix.setBlock(wellGlobalDofIdx, gridDofIdx, block);
+>>>>>>> master
 
             //
             /////////////
@@ -469,9 +496,15 @@ public:
             Opm::Valgrind::CheckDefined(q);
             block = 0.0;
             for (unsigned eqIdx = 0; eqIdx < numModelEq; ++ eqIdx)
+<<<<<<< HEAD
                 block[eqIdx][0] = - Toolbox::value(q[eqIdx])/dofVars.totalVolume;
 
             matrix.setBlock( gridDofIdx, wellGlobalDofIdx, block );
+=======
+                block[eqIdx][0] = - Opm::getValue(q[eqIdx])/dofVars.totalVolume;
+
+            matrix.setBlock(gridDofIdx, wellGlobalDofIdx, block);
+>>>>>>> master
 
             //
             /////////////
@@ -485,7 +518,20 @@ public:
         Scalar wellResidStar = wellResidual_(actualBottomHolePressure_ + eps);
         diagBlock[0][0] = (wellResidStar - wellResid)/eps;
 
+<<<<<<< HEAD
         matrix.setBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock );
+=======
+        matrix.setBlock(wellGlobalDofIdx, wellGlobalDofIdx, diagBlock);
+    }
+
+    Scalar volumetricSurfaceRateForConnection(int globalDofIdx, int phaseIdx) const {
+        const DofVariables& dofVars = *dofVariables_.at(globalDofIdx);
+        std::array<Scalar, numPhases> volumetricReservoirRates;
+        computeVolumetricDofRates_(volumetricReservoirRates, actualBottomHolePressure_, dofVars);
+        std::array<Scalar, numPhases> volumetricSurfaceRates;
+        computeSurfaceRates_(volumetricSurfaceRates, volumetricReservoirRates, dofVars);
+        return volumetricSurfaceRates[phaseIdx];
+>>>>>>> master
     }
 
 

@@ -34,6 +34,8 @@
 #include <opm/parser/eclipse/EclipseState/Grid/GridProperties.hpp>
 #include <opm/parser/eclipse/EclipseState/Grid/FaceDir.hpp>
 #include <opm/parser/eclipse/EclipseState/Grid/TransMult.hpp>
+#include <opm/parser/eclipse/Units/Units.hpp>
+
 
 #include <opm/grid/CpGrid.hpp>
 
@@ -87,10 +89,16 @@ class EclTransmissibility
     typedef Dune::FieldMatrix<Scalar, dimWorld, dimWorld> DimMatrix;
     typedef Dune::FieldVector<Scalar, dimWorld> DimVector;
 
+    static const unsigned elemIdxShift = 32; // bits
+
+
 public:
     EclTransmissibility(const Vanguard& vanguard)
         : vanguard_(vanguard)
-    {}
+    {
+        const Opm::UnitSystem& unitSystem = vanguard_.deck().getActiveUnitSystem();
+        transmissibility_threshold_  = unitSystem.parse("Transmissibility").getSIScaling() * 1e-6;
+    }
 
     /*!
      * \brief Actually compute the transmissibilty over a face as a pre-compute step.
@@ -121,6 +129,7 @@ public:
         const auto& cartMapper = vanguard_.cartesianIndexMapper();
         const auto& eclState = vanguard_.eclState();
         const auto& eclGrid = eclState.getInputGrid();
+        const auto& cartDims = cartMapper.cartesianDimensions();
         auto& transMult = eclState.getTransMult();
 #if DUNE_VERSION_NEWER(DUNE_GRID, 2,6)
         ElementMapper elemMapper(gridView, Dune::mcmgElementLayout());
@@ -315,7 +324,16 @@ public:
 
                 // apply the full face transmissibility multipliers
                 // for the inside ...
-                applyMultipliers_(trans, insideFaceIdx, insideCartElemIdx, transMult);
+
+                // The MULTZ needs special case if the option is ALL
+                // Then the smallest multiplier is applied.
+                // Default is to apply the top and bottom multiplier
+                bool useSmallestMultiplier = eclGrid.getMultzOption() == Opm::PinchMode::ModeEnum::ALL;
+                if (useSmallestMultiplier) {
+                    applyAllZMultipliers_(trans, insideFaceIdx, insideCartElemIdx, outsideCartElemIdx, transMult, cartDims);
+                } else {
+                    applyMultipliers_(trans, insideFaceIdx, insideCartElemIdx, transMult);
+                }
                 // ... and outside elements
                 applyMultipliers_(trans, outsideFaceIdx, outsideCartElemIdx, transMult);
 
@@ -351,6 +369,10 @@ public:
 
         // potentially overwrite and/or modify  transmissibilities based on input from deck
         updateFromEclState_();
+        applyEditNNC_(elemMapper);
+
+        //remove very small non-neighbouring transmissibilities
+        removeSmallNonCartesianTransmissibilities_();
     }
 
     /*!
@@ -392,6 +414,49 @@ public:
     { return thermalHalfTransBoundary_.at(std::make_pair(insideElemIdx, boundaryFaceIdx)); }
 
 private:
+
+    void removeSmallNonCartesianTransmissibilities_() {
+        const auto& cartMapper = vanguard_.cartesianIndexMapper();
+        const auto& cartDims = cartMapper.cartesianDimensions();
+        for ( auto&& trans: trans_ ){
+            if (trans.second < transmissibility_threshold_) {
+                const auto& id = trans.first;
+                const auto& elements = isIdReverse_(id);
+                int gc1 = std::min(cartMapper.cartesianIndex(elements.first), cartMapper.cartesianIndex(elements.second));
+                int gc2 = std::max(cartMapper.cartesianIndex(elements.first), cartMapper.cartesianIndex(elements.second));
+
+                // only adjust the NNCs
+                if (gc2 - gc1 == 1 || gc2 - gc1 == cartDims[0] || gc2 - gc1 == cartDims[0]*cartDims[1] )
+                    continue;
+
+                //remove transmissibilities less than the threshold (by default 1e-6 in the deck's unit system)
+                trans.second = 0.0;
+            }
+        }
+    }
+
+    void applyAllZMultipliers_(Scalar& trans, unsigned insideFaceIdx, unsigned insideCartElemIdx, unsigned outsideCartElemIdx,
+                               const Opm::TransMult& transMult, const std::array<int, dimWorld>& cartDims){
+
+        if (insideFaceIdx > 3) { //TOP or BOTTOM
+            Scalar mult = 1e20;
+            unsigned cartElemIdx = insideCartElemIdx;
+            // pick the smallest multiplier while looking down the pillar untill reaching the other end of the connection
+            // for the inbetween cells we apply it from both sides
+            while (cartElemIdx != outsideCartElemIdx) {
+                if (insideFaceIdx == 4 || cartElemIdx !=insideCartElemIdx  )
+                    mult = std::min(mult, transMult.getMultiplier(cartElemIdx, Opm::FaceDir::ZMinus));
+                if (insideFaceIdx == 5 || cartElemIdx !=insideCartElemIdx)
+                    mult = std::min(mult, transMult.getMultiplier(cartElemIdx, Opm::FaceDir::ZPlus));
+
+                cartElemIdx += cartDims[0]*cartDims[1];
+            }
+            trans *= mult;
+        } else {
+            applyMultipliers_(trans, insideFaceIdx, insideCartElemIdx, transMult);
+        }
+
+    }
 
     void updateFromEclState_(){
         const auto& gridView = vanguard_.gridView();
@@ -504,6 +569,62 @@ private:
         faceAreaNormal = vanguard_.grid().faceAreaNormalEcl(faceIdx);
     }
 
+    void applyEditNNC_(const ElementMapper& elementMapper)
+    {
+        const auto& editNNC = vanguard_.eclState().getInputEDITNNC();
+        if ( editNNC.empty() )
+        {
+            return;
+        }
+        // Create mapping from global to local index
+        const auto& cartMapper = vanguard_.cartesianIndexMapper();
+        const size_t cartesianSize = cartMapper.cartesianSize();
+        // reserve memory
+        std::vector<int> globalToLocal(cartesianSize, -1);
+
+        // loop over all elements (global grid) and store Cartesian index
+        auto elemIt = vanguard_.grid().leafGridView().template begin<0>();
+        const auto& elemEndIt = vanguard_.grid().leafGridView().template end<0>();
+
+        for (; elemIt != elemEndIt; ++elemIt) {
+            int elemIdx = elementMapper.index(*elemIt);
+            int cartElemIdx = vanguard_.cartesianIndexMapper().cartesianIndex(elemIdx);
+            globalToLocal[cartElemIdx] = elemIdx;
+        }
+
+        // editNNC is supposed to only reference non-neighboring connections and not
+        // neighboring connections. Use all entries for scaling if there is an NNC.
+        // variable nnc incremented in loop body.
+        for (auto nnc = editNNC.data().begin(), end = editNNC.data().end(); nnc != end; )
+        {
+            auto c1 = nnc->cell1, c2 = nnc->cell2;
+            auto low = globalToLocal[c1], high = globalToLocal[c2];
+            if ( low > high)
+            {
+                std::swap(low, high);
+            }
+            auto candidate = trans_.find(isId_(low, high));
+
+            if ( candidate == trans_.end() )
+            {
+                std::ostringstream sstr;
+                sstr << "Cannot edit NNC from " << c1 << " to " << c2
+                     << " as it does not exist";
+                Opm::OpmLog::warning(sstr.str());
+                ++nnc;
+            }
+            else
+            {
+                // NNC exists
+                while ( nnc!= end && c1==nnc->cell1 && c2==nnc->cell2 )
+                {
+                    candidate->second *= nnc->trans;
+                    ++nnc;
+                }
+            }
+        }
+    }
+
     void extractPermeability_()
     {
         const auto& props = vanguard_.eclState().get3DProperties();
@@ -540,20 +661,27 @@ private:
                                    "(The PERM{X,Y,Z} keywords are missing)");
     }
 
-    std::uint64_t isId_(unsigned elemIdx1, unsigned elemIdx2) const
+    std::uint64_t isId_(std::uint32_t elemIdx1, std::uint32_t elemIdx2) const
     {
-        static const unsigned elemIdxShift = 32; // bits
-
-        unsigned elemAIdx = std::min(elemIdx1, elemIdx2);
+        std::uint32_t elemAIdx = std::min(elemIdx1, elemIdx2);
         std::uint64_t elemBIdx = std::max(elemIdx1, elemIdx2);
 
         return (elemBIdx<<elemIdxShift) + elemAIdx;
     }
 
-    std::uint64_t directionalIsId_(unsigned elemIdx1, unsigned elemIdx2) const
+    std::pair<std::uint32_t, std::uint32_t> isIdReverse_(const std::uint64_t& id) const
     {
-        static const unsigned elemIdxShift = 32; // bits
+        // Assigning an unsigned integer to a narrower type discards the most significant bits.
+        // See "The C programming language", section A.6.2.
+        // NOTE that the ordering of element A and B may have changed
+        std::uint32_t elemAIdx = id;
+        std::uint32_t elemBIdx = (id - elemAIdx) >> elemIdxShift;
 
+        return std::make_pair(elemAIdx, elemBIdx);
+    }
+
+    std::uint64_t directionalIsId_(std::uint32_t elemIdx1, std::uint32_t elemIdx2) const
+    {
         return (std::uint64_t(elemIdx1)<<elemIdxShift) + elemIdx2;
     }
 
@@ -695,6 +823,7 @@ private:
     }
 
     const Vanguard& vanguard_;
+    Scalar transmissibility_threshold_;
     std::vector<DimMatrix> permeability_;
     std::unordered_map<std::uint64_t, Scalar> trans_;
     std::map<std::pair<unsigned, unsigned>, Scalar> transBoundary_;

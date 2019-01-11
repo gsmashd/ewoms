@@ -28,6 +28,7 @@
 #define EWOMS_THREADED_ENTITY_ITERATOR_HH
 
 #include <thread>
+#include <mutex>
 
 namespace Ewoms {
 
@@ -66,6 +67,14 @@ public:
     // returns true if the last element was reached
     bool isFinished(const EntityIterator& it) const
     { return it == sequentialEnd_; }
+
+    // make sure that the loop over the grid is finished
+    void setFinished()
+    {
+        mutex_.lock();
+        sequentialIt_ = sequentialEnd_;
+        mutex_.unlock();
+    }
 
     // prefix increment: goes to the next element which is not yet worked on by any
     // thread

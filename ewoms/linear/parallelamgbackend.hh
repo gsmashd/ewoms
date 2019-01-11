@@ -31,6 +31,7 @@
 #include "bicgstabsolver.hh"
 #include "combinedcriterion.hh"
 
+#include <dune/istl/bcrsmatrix.hh>
 #include <dune/istl/paamg/amg.hh>
 #include <dune/istl/paamg/pinfo.hh>
 #include <dune/istl/owneroverlapcopy.hh>
@@ -81,7 +82,11 @@ class ParallelAmgBackend : public ParallelBaseBackend<TypeTag>
     typedef typename GET_PROP_TYPE(TypeTag, Simulator) Simulator;
     typedef typename GET_PROP_TYPE(TypeTag, GridView) GridView;
     typedef typename GET_PROP_TYPE(TypeTag, Overlap) Overlap;
+<<<<<<< HEAD
     typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
+=======
+    typedef typename GET_PROP_TYPE(TypeTag, SparseMatrixAdapter) SparseMatrixAdapter;
+>>>>>>> master
 
     typedef typename ParentType::ParallelOperator ParallelOperator;
     typedef typename ParentType::OverlappingVector OverlappingVector;
@@ -90,27 +95,31 @@ class ParallelAmgBackend : public ParallelBaseBackend<TypeTag>
 
     static constexpr int numEq = GET_PROP_VALUE(TypeTag, NumEq);
     typedef Dune::FieldVector<LinearSolverScalar, numEq> VectorBlock;
+<<<<<<< HEAD
     typedef typename JacobianMatrix :: block_type MatrixBlock;
+=======
+    typedef typename SparseMatrixAdapter::MatrixBlock MatrixBlock;
+    typedef typename SparseMatrixAdapter::IstlMatrix IstlMatrix;
+>>>>>>> master
 
-    typedef Dune::BCRSMatrix<MatrixBlock> Matrix;
     typedef Dune::BlockVector<VectorBlock> Vector;
 
     // define the smoother used for the AMG and specify its
     // arguments
-    typedef Dune::SeqSOR<Matrix, Vector, Vector> SequentialSmoother;
-// typedef Dune::SeqSSOR<Matrix,Vector,Vector> SequentialSmoother;
-// typedef Dune::SeqJac<Matrix,Vector,Vector> SequentialSmoother;
+    typedef Dune::SeqSOR<IstlMatrix, Vector, Vector> SequentialSmoother;
+// typedef Dune::SeqSSOR<IstlMatrix,Vector,Vector> SequentialSmoother;
+// typedef Dune::SeqJac<IstlMatrix,Vector,Vector> SequentialSmoother;
 #if DUNE_VERSION_NEWER(DUNE_ISTL, 2,7)
-// typedef Dune::SeqILU<Matrix,Vector,Vector> SequentialSmoother;
+// typedef Dune::SeqILU<IstlMatrix,Vector,Vector> SequentialSmoother;
 #else
-// typedef Dune::SeqILU0<Matrix,Vector,Vector> SequentialSmoother;
-// typedef Dune::SeqILUn<Matrix,Vector,Vector> SequentialSmoother;
+// typedef Dune::SeqILU0<IstlMatrix,Vector,Vector> SequentialSmoother;
+// typedef Dune::SeqILUn<IstlMatrix,Vector,Vector> SequentialSmoother;
 #endif
 
 #if HAVE_MPI
     typedef Dune::OwnerOverlapCopyCommunication<Ewoms::Linear::Index>
     OwnerOverlapCopyCommunication;
-    typedef Dune::OverlappingSchwarzOperator<Matrix,
+    typedef Dune::OverlappingSchwarzOperator<IstlMatrix,
                                              Vector,
                                              Vector,
                                              OwnerOverlapCopyCommunication> FineOperator;
@@ -125,7 +134,7 @@ class ParallelAmgBackend : public ParallelBaseBackend<TypeTag>
                            ParallelSmoother,
                            OwnerOverlapCopyCommunication> AMG;
 #else
-    typedef Dune::MatrixAdapter<Matrix, Vector, Vector> FineOperator;
+    typedef Dune::MatrixAdapter<IstlMatrix, Vector, Vector> FineOperator;
     typedef Dune::SeqScalarProduct<Vector> FineScalarProduct;
     typedef SequentialSmoother ParallelSmoother;
     typedef Dune::Amg::AMG<FineOperator, Vector, ParallelSmoother> AMG;
@@ -134,6 +143,9 @@ class ParallelAmgBackend : public ParallelBaseBackend<TypeTag>
     typedef BiCGStabSolver<ParallelOperator,
                            OverlappingVector,
                            AMG> RawLinearSolver;
+
+    static_assert(std::is_same<SparseMatrixAdapter, IstlSparseMatrixAdapter<MatrixBlock> >::value,
+                  "The ParallelAmgBackend linear solver backend requires the IstlSparseMatrixAdapter");
 
 public:
     ParallelAmgBackend(const Simulator& simulator)
@@ -188,7 +200,9 @@ protected:
         typedef CombinedCriterion<OverlappingVector, decltype(gridView.comm())> CCC;
 
         Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
-        Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
+        Scalar linearSolverAbsTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverAbsTolerance);
+        if(linearSolverAbsTolerance < 0.0)
+            linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance()/100.0;
 
         convCrit_.reset(new CCC(gridView.comm(),
                                 /*residualReductionTolerance=*/linearSolverTolerance,
@@ -212,7 +226,11 @@ protected:
     std::pair<bool,int> runSolver_(std::shared_ptr<RawLinearSolver> solver)
     {
         bool converged = solver->apply(*this->overlappingx_);
+<<<<<<< HEAD
         return std::make_pair( converged, int(solver->report().iterations()) );
+=======
+        return std::make_pair(converged, int(solver->report().iterations()));
+>>>>>>> master
     }
 
     void cleanupSolver_()
@@ -265,10 +283,10 @@ protected:
         // specify the coarsen criterion:
         //
         // typedef
-        // Dune::Amg::CoarsenCriterion<Dune::Amg::SymmetricCriterion<Matrix,
+        // Dune::Amg::CoarsenCriterion<Dune::Amg::SymmetricCriterion<IstlMatrix,
         //                             Dune::Amg::FirstDiagonal>>
         typedef Dune::Amg::
-            CoarsenCriterion<Dune::Amg::SymmetricCriterion<Matrix, Dune::Amg::FrobeniusNorm> >
+            CoarsenCriterion<Dune::Amg::SymmetricCriterion<IstlMatrix, Dune::Amg::FrobeniusNorm> >
             CoarsenCriterion;
         int coarsenTarget = EWOMS_GET_PARAM(TypeTag, int, AmgCoarsenTarget);
         CoarsenCriterion coarsenCriterion(/*maxLevel=*/15, coarsenTarget);

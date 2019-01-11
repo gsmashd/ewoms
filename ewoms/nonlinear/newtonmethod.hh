@@ -102,7 +102,7 @@ NEW_PROP_TAG(EqVector);
 NEW_PROP_TAG(Linearizer);
 
 //! Specifies the type of a global Jacobian matrix
-NEW_PROP_TAG(JacobianMatrix);
+NEW_PROP_TAG(SparseMatrixAdapter);
 
 //! Specifies the type of the linear solver to be used
 NEW_PROP_TAG(LinearSolverBackend);
@@ -183,7 +183,6 @@ class NewtonMethod
     typedef typename GET_PROP_TYPE(TypeTag, Constraints) Constraints;
     typedef typename GET_PROP_TYPE(TypeTag, EqVector) EqVector;
     typedef typename GET_PROP_TYPE(TypeTag, Linearizer) Linearizer;
-    typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
     typedef typename GET_PROP_TYPE(TypeTag, LinearSolverBackend) LinearSolverBackend;
     typedef typename GET_PROP_TYPE(TypeTag, NewtonConvergenceWriter) ConvergenceWriter;
 
@@ -375,10 +374,10 @@ public:
                 // give it the chance to update the error and thus to terminate the
                 // Newton method without the need of solving the last linearization.
                 updateTimer_.start();
-                auto& jacobian = linearizer.jacobian();
                 auto& residual = linearizer.residual();
-                linearSolver_.prepareRhs(jacobian, residual);
-                asImp_().preSolve_(currentSolution, residual);
+                auto& jacobian = linearizer.jacobian();
+                linearSolver_.prepare(jacobian, residual);
+                asImp_().preSolve_(currentSolution, linearizer.residual());
                 updateTimer_.stop();
 
                 asImp_().linearizeAuxiliaryEquations_();
@@ -405,7 +404,9 @@ public:
 
                 solveTimer_.start();
                 solutionUpdate = 0.0;
-                linearSolver_.prepareMatrix( jacobian );
+
+                // solve A x = b, where b is the residual, A is its Jacobian and x is the
+                // update of the solution
                 bool converged = linearSolver_.solve(solutionUpdate);
                 solveTimer_.stop();
 

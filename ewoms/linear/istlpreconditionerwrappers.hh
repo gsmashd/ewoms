@@ -52,7 +52,7 @@
 
 BEGIN_PROPERTIES
 NEW_PROP_TAG(Scalar);
-NEW_PROP_TAG(JacobianMatrix);
+NEW_PROP_TAG(SparseMatrixAdapter);
 NEW_PROP_TAG(OverlappingMatrix);
 NEW_PROP_TAG(OverlappingVector);
 NEW_PROP_TAG(PreconditionerOrder);
@@ -66,12 +66,21 @@ namespace Linear {
     class PreconditionerWrapper##PREC_NAME                                      \
     {                                                                           \
         typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;                 \
+<<<<<<< HEAD
         typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix; \
         typedef typename JacobianMatrix :: Matrix   Matrix;                     \
         typedef typename GET_PROP_TYPE(TypeTag, OverlappingVector) OverlappingVector; \
                                                                                 \
     public:                                                                     \
         typedef ISTL_PREC_TYPE<Matrix, OverlappingVector,                       \
+=======
+        typedef typename GET_PROP_TYPE(TypeTag, SparseMatrixAdapter) SparseMatrixAdapter; \
+        typedef typename SparseMatrixAdapter::IstlMatrix IstlMatrix;            \
+        typedef typename GET_PROP_TYPE(TypeTag, OverlappingVector) OverlappingVector; \
+                                                                                \
+    public:                                                                     \
+        typedef ISTL_PREC_TYPE<IstlMatrix, OverlappingVector,                   \
+>>>>>>> master
                                OverlappingVector> SequentialPreconditioner;     \
         PreconditionerWrapper##PREC_NAME()                                      \
         {}                                                                      \
@@ -85,12 +94,16 @@ namespace Linear {
                                  "preconditioner");                             \
         }                                                                       \
                                                                                 \
+<<<<<<< HEAD
         void prepare(JacobianMatrix& jacobian)                                  \
         {                                                                       \
             prepare( jacobian.matrix() );                                       \
         }                                                                       \
                                                                                 \
         void prepare(Matrix& matrix)                                            \
+=======
+        void prepare(IstlMatrix& matrix)                                        \
+>>>>>>> master
         {                                                                       \
             int order = EWOMS_GET_PARAM(TypeTag, int, PreconditionerOrder);     \
             Scalar relaxationFactor = EWOMS_GET_PARAM(TypeTag, Scalar, PreconditionerRelaxation);   \

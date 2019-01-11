@@ -30,6 +30,7 @@
 #include "parallelbasebackend.hh"
 #include "bicgstabsolver.hh"
 #include "combinedcriterion.hh"
+#include "istlsparsematrixadapter.hh"
 
 #include <memory>
 
@@ -88,15 +89,21 @@ class ParallelBiCGStabSolverBackend : public ParallelBaseBackend<TypeTag>
 
     typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
     typedef typename GET_PROP_TYPE(TypeTag, Simulator) Simulator;
+    typedef typename GET_PROP_TYPE(TypeTag, SparseMatrixAdapter) SparseMatrixAdapter;
 
     typedef typename ParentType::ParallelOperator ParallelOperator;
     typedef typename ParentType::OverlappingVector OverlappingVector;
     typedef typename ParentType::ParallelPreconditioner ParallelPreconditioner;
     typedef typename ParentType::ParallelScalarProduct ParallelScalarProduct;
 
+    typedef typename SparseMatrixAdapter::MatrixBlock MatrixBlock;
+
     typedef BiCGStabSolver<ParallelOperator,
                            OverlappingVector,
                            ParallelPreconditioner> RawLinearSolver;
+
+    static_assert(std::is_same<SparseMatrixAdapter, IstlSparseMatrixAdapter<MatrixBlock> >::value,
+                  "The ParallelIstlSolverBackend linear solver backend requires the IstlSparseMatrixAdapter");
 
 public:
     ParallelBiCGStabSolverBackend(const Simulator& simulator)
@@ -123,7 +130,13 @@ protected:
         typedef CombinedCriterion<OverlappingVector, decltype(gridView.comm())> CCC;
 
         Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
+<<<<<<< HEAD
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 1000.0;
+=======
+        Scalar linearSolverAbsTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverAbsTolerance);
+        if(linearSolverAbsTolerance < 0.0)
+            linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100.0;
+>>>>>>> master
 
         convCrit_.reset(new CCC(gridView.comm(),
                                 /*residualReductionTolerance=*/linearSolverTolerance,
@@ -147,7 +160,11 @@ protected:
     std::pair<bool,int> runSolver_(std::shared_ptr<RawLinearSolver> solver)
     {
         bool converged = solver->apply(*this->overlappingx_);
+<<<<<<< HEAD
         return std::make_pair( converged, int(solver->report().iterations()) );
+=======
+        return std::make_pair(converged, int(solver->report().iterations()));
+>>>>>>> master
     }
 
     void cleanupSolver_()
