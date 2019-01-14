@@ -73,7 +73,8 @@ SET_TYPE_PROP(AmgXSolverBackend,
               LinearSolverBackend,
               Ewoms::Linear::AmgXSolverBackend<TypeTag>);
 
-//NEW_PROP_TAG(LinearSolverTolerance);
+NEW_PROP_TAG(LinearSolverTolerance);
+NEW_PROP_TAG(LinearSolverAbsTolerance);
 NEW_PROP_TAG(LinearSolverMaxIterations);
 NEW_PROP_TAG(LinearSolverVerbosity);
 NEW_PROP_TAG(LinearSolverMaxError);
@@ -83,6 +84,9 @@ NEW_PROP_TAG(PreconditionerOrder);
 
 //! The relaxation factor of the preconditioner
 NEW_PROP_TAG(PreconditionerRelaxation);
+
+//! Solver mode for AMGX solver
+NEW_PROP_TAG(AmgxSolverMode);
 
 //! Filename for AMGX solver configuration
 NEW_PROP_TAG(AmgxSolverConfigFileName);
@@ -105,10 +109,16 @@ SET_INT_PROP(AmgXSolverBackend, PreconditionerOrder, 0);
 SET_SCALAR_PROP(AmgXSolverBackend, PreconditionerRelaxation, 1.0);
 
 //! make the linear solver shut up by default
-//SET_SCALAR_PROP(AmgXSolverBackend, LinearSolverTolerance, 0.01);
+SET_SCALAR_PROP(AmgXSolverBackend, LinearSolverTolerance, 0.01);
+
+//! make the linear solver shut up by default
+SET_SCALAR_PROP(AmgXSolverBackend, LinearSolverAbsTolerance, 0.01);
+
+//! set default solver mode for AMGX solver configuratrion
+SET_STRING_PROP(AmgXSolverBackend, AmgxSolverMode, "dDDI");
 
 //! set default filename for AMGX solver configuratrion
-SET_STRING_PROP(AmgXSolverBackend, AmgxSolverConfigFileName, "");
+SET_STRING_PROP(AmgXSolverBackend, AmgxSolverConfigFileName, "amgxconfig.json");
 
 END_PROPERTIES
 
@@ -168,6 +178,7 @@ public:
         : simulator_(simulator)
         , amgxSolver_()
         , rhs_( nullptr )
+        , iterations_( 0 )
     {
     }
 
@@ -180,6 +191,8 @@ public:
     static void registerParameters()
     {
         EWOMS_REGISTER_PARAM(TypeTag, Scalar, LinearSolverTolerance,
+                             "The maximum allowed error between of the linear solver");
+        EWOMS_REGISTER_PARAM(TypeTag, Scalar, LinearSolverAbsTolerance,
                              "The maximum allowed error between of the linear solver");
         EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverMaxIterations,
                              "The maximum number of iterations of the linear solver");
@@ -197,6 +210,8 @@ public:
         EWOMS_REGISTER_PARAM(TypeTag, Scalar, PreconditionerRelaxation,
                              "The relaxation factor of the preconditioner");
 
+        EWOMS_REGISTER_PARAM(TypeTag, std::string, AmgxSolverMode,
+                             "The name of the solver mode for AMGX");
         EWOMS_REGISTER_PARAM(TypeTag, std::string, AmgxSolverConfigFileName,
                              "The name of the file which contains the AMGX solver configuration");
 
@@ -213,14 +228,22 @@ public:
     void prepare(const LinearOperator& op, Vector& b)
     {
         Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
-        Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100000.0;
+        Scalar linearSolverAbsTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverAbsTolerance);
 
         // reset linear solver
-        std::string mode = "dDDI";
+        std::string mode = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverMode);
         std::string solverconfig = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverConfigFileName);
-        amgxSolver_.initialize(MPI_COMM_WORLD, mode, solverconfig);
+
+        if( !amgxSolver_ )
+            amgxSolver_.reset( new AmgXSolver () );
+
+        amgxSolver_->initialize(PETSC_COMM_WORLD, mode, solverconfig);
+
+        // attach Matrix to linear solver context
+        Mat& A = const_cast<Mat &> (op.petscMatrix());
+
         // set up the matrix used by AmgX
-        amgxSolver_.setA( op.petscMatrix() );
+        amgxSolver_->setA( A );
 
         // store pointer to right hand side
         rhs_ = &b;
@@ -252,13 +275,12 @@ public:
         // solve with right hand side rhs and store in x
         Vec& p = *(petscX_->petscVec());
         Vec& rhs = *(petscRhs_->petscVec());
-        amgxSolver_.solve( p, rhs );
+        amgxSolver_->solve( p, rhs );
 
         // copy result to ewoms solution
         X.assign( *petscX_ );
 
-        int iters;
-        amgxSolver_.getIters(iters);
+        amgxSolver_->getIters(iterations_);
 
         // return the result of the solver
         return true;
@@ -268,8 +290,7 @@ public:
      * \brief Return number of iterations used during last solve.
      */
     size_t iterations () const {
-        //assert( amgxSolver_);
-        return 10; //std::abs(amgxSolver_->iterations());
+        return iterations_;
     }
 
 protected:
@@ -285,8 +306,9 @@ protected:
 
     void cleanup_()
     {
-        //amgxSolver_.reset();
-        amgxSolver_.finalize();
+        if( amgxSolver_ )
+            amgxSolver_->finalize();
+        amgxSolver_.reset();
         rhs_ = nullptr;
 
         petscRhs_.reset();
@@ -298,9 +320,10 @@ protected:
     std::unique_ptr< PetscDiscreteFunctionType > petscRhs_;
     std::unique_ptr< PetscDiscreteFunctionType > petscX_;
 
-    AmgXSolver amgxSolver_;
+    std::unique_ptr< AmgXSolver > amgxSolver_;
 
     Vector* rhs_;
+    int iterations_;
 };
 }} // namespace Linear, Ewoms
 
