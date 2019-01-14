@@ -259,7 +259,7 @@ public:
             amgxSolver_->initialize(PETSC_COMM_WORLD, mode, solverconfig);
 
             // set up the matrix used by AmgX
-            amgxSolver_->setA( op.petscMatrix() );
+            amgxSolver_->setA( op.aijPetscMatrix() );
         }
 
         // store pointer to right hand side
