@@ -256,7 +256,7 @@ public:
             std::string solverconfig = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverConfigFileName);
 
             amgxSolver_.reset( new AmgXSolver() );
-            amgxSolver_->initialize(PETSC_COMM_SELF, mode, solverconfig);
+            amgxSolver_->initialize(PETSC_COMM_WORLD, mode, solverconfig);
 
             // set up the matrix used by AmgX
             amgxSolver_->setA( op.petscMatrix() );
