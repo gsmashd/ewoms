@@ -258,8 +258,9 @@ public:
             amgxSolver_.reset( new AmgXSolver() );
             amgxSolver_->initialize(PETSC_COMM_WORLD, mode, solverconfig);
 
+            ::Dune::Petsc::ErrorCheck( ::MatConvert( op.petscMatrix(), MATAIJ, MAT_INITIAL_MATRIX, &A_ ) );
             // set up the matrix used by AmgX
-            amgxSolver_->setA( op.aijPetscMatrix() );
+            amgxSolver_->setA( A_ );
         }
 
         // store pointer to right hand side
@@ -329,6 +330,7 @@ protected:
         {
             amgxSolver_->finalize();
             amgxSolver_.reset();
+            ::Dune::Petsc::MatDestroy( &A_ );
         }
 
         rhs_ = nullptr;
@@ -338,6 +340,8 @@ protected:
     }
 
     const Simulator& simulator_;
+
+    Mat A_;
 
     std::unique_ptr< PetscDiscreteFunctionType > petscRhs_;
     std::unique_ptr< PetscDiscreteFunctionType > petscX_;
