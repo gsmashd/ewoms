@@ -287,7 +287,7 @@ public:
         }
 
         petscRhs_->assign( B );
-        petscX_->clear();
+        petscX_->assign( X );
 
         // solve with right hand side rhs and store in x
         Vec& p = *(petscX_->petscVec());
