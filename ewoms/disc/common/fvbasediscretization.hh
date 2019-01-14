@@ -183,6 +183,12 @@ private:
           this->flushAssembly();
         }
 
+        template< class LocalBlock >
+        void addToBlock ( const size_t row, const size_t col, const LocalBlock& block )
+        {
+          this->addBlock( row, col, block );
+        }
+
         // adjust to ewoms matrixbackend interface
         void finalize( )
         {

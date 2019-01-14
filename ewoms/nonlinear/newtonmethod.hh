@@ -374,8 +374,10 @@ public:
                 // give it the chance to update the error and thus to terminate the
                 // Newton method without the need of solving the last linearization.
                 updateTimer_.start();
+                linearizer.finalize();
                 auto& residual = linearizer.residual();
                 auto& jacobian = linearizer.jacobian();
+
                 linearSolver_.prepare(jacobian, residual);
                 asImp_().preSolve_(currentSolution, linearizer.residual());
                 updateTimer_.stop();

@@ -91,6 +91,9 @@ NEW_PROP_TAG(AmgxSolverMode);
 //! Filename for AMGX solver configuration
 NEW_PROP_TAG(AmgxSolverConfigFileName);
 
+//! Filename for DUNE-FEM solver parameters
+NEW_PROP_TAG(FemSolverParameterFileName);
+
 //! make the linear solver shut up by default
 SET_INT_PROP(AmgXSolverBackend, LinearSolverVerbosity, 0);
 
@@ -119,6 +122,9 @@ SET_STRING_PROP(AmgXSolverBackend, AmgxSolverMode, "dDDI");
 
 //! set default filename for AMGX solver configuratrion
 SET_STRING_PROP(AmgXSolverBackend, AmgxSolverConfigFileName, "amgxconfig.json");
+
+//! set the preconditioner relaxation parameter to 1.0 by default
+SET_STRING_PROP(AmgXSolverBackend, FemSolverParameterFileName, "");
 
 END_PROPERTIES
 
@@ -180,6 +186,17 @@ public:
         , rhs_( nullptr )
         , iterations_( 0 )
     {
+        std::string paramFileName = EWOMS_GET_PARAM(TypeTag, std::string, FemSolverParameterFileName);
+        if( paramFileName != "" )
+        {
+            Dune::Fem::Parameter::append( paramFileName );
+        }
+        else
+        {
+            // default parameters for petsc matrix
+            Dune::Fem::Parameter::append("petscmatrix.blockedmode", "false" );
+        }
+
     }
 
     ~AmgXSolverBackend()
@@ -215,6 +232,8 @@ public:
         EWOMS_REGISTER_PARAM(TypeTag, std::string, AmgxSolverConfigFileName,
                              "The name of the file which contains the AMGX solver configuration");
 
+        EWOMS_REGISTER_PARAM(TypeTag, std::string, FemSolverParameterFileName,
+                             "The name of the file which contains the parameters for the DUNE-FEM solvers");
 
     }
 
@@ -227,23 +246,21 @@ public:
 
     void prepare(const LinearOperator& op, Vector& b)
     {
-        Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
-        Scalar linearSolverAbsTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverAbsTolerance);
+        //Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
+        //Scalar linearSolverAbsTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverAbsTolerance);
 
-        // reset linear solver
-        std::string mode = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverMode);
-        std::string solverconfig = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverConfigFileName);
+        if( ! amgxSolver_ )
+        {
+            // reset linear solver
+            std::string mode = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverMode);
+            std::string solverconfig = EWOMS_GET_PARAM(TypeTag, std::string, AmgxSolverConfigFileName);
 
-        if( !amgxSolver_ )
-            amgxSolver_.reset( new AmgXSolver () );
+            amgxSolver_.reset( new AmgXSolver() );
+            amgxSolver_->initialize(PETSC_COMM_SELF, mode, solverconfig);
 
-        amgxSolver_->initialize(PETSC_COMM_WORLD, mode, solverconfig);
-
-        // attach Matrix to linear solver context
-        Mat& A = const_cast<Mat &> (op.petscMatrix());
-
-        // set up the matrix used by AmgX
-        amgxSolver_->setA( A );
+            // set up the matrix used by AmgX
+            amgxSolver_->setA( op.petscMatrix() );
+        }
 
         // store pointer to right hand side
         rhs_ = &b;
@@ -275,7 +292,9 @@ public:
         // solve with right hand side rhs and store in x
         Vec& p = *(petscX_->petscVec());
         Vec& rhs = *(petscRhs_->petscVec());
+        std::cout << "Call AMGX solver" << std::endl;
         amgxSolver_->solve( p, rhs );
+        std::cout << "Solve finished" << std::endl;
 
         // copy result to ewoms solution
         X.assign( *petscX_ );
@@ -307,8 +326,11 @@ protected:
     void cleanup_()
     {
         if( amgxSolver_ )
+        {
             amgxSolver_->finalize();
-        amgxSolver_.reset();
+            amgxSolver_.reset();
+        }
+
         rhs_ = nullptr;
 
         petscRhs_.reset();
