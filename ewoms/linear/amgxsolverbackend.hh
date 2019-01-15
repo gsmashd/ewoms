@@ -191,16 +191,16 @@ public:
         {
             Dune::Fem::Parameter::append( paramFileName );
         }
-        else
-        {
-            // default parameters for petsc matrix
-            Dune::Fem::Parameter::append("petscmatrix.blockedmode", "false" );
-        }
-
     }
 
     ~AmgXSolverBackend()
-    { cleanup_(); }
+    { cleanup_();
+      if( A_ )
+      {
+          ::Dune::Petsc::MatDestroy( A_.operator ->() );
+          A_.reset();
+      }
+    }
 
     /*!
      * \brief Register all run-time parameters for the linear solver.
@@ -258,9 +258,14 @@ public:
             amgxSolver_.reset( new AmgXSolver() );
             amgxSolver_->initialize(PETSC_COMM_WORLD, mode, solverconfig);
 
-            ::Dune::Petsc::ErrorCheck( ::MatConvert( op.petscMatrix(), MATAIJ, MAT_INITIAL_MATRIX, &A_ ) );
+            if(! A_) {
+                A_.reset( new Mat() );
+            }
+
+            // convert MATBAIJ to MATAIJ which is needed by AmgXSolver
+            ::Dune::Petsc::ErrorCheck( ::MatConvert( op.petscMatrix(), MATAIJ, MAT_INITIAL_MATRIX, A_.operator ->() ) );
             // set up the matrix used by AmgX
-            amgxSolver_->setA( A_ );
+            amgxSolver_->setA( *A_ );
         }
 
         // store pointer to right hand side
@@ -293,9 +298,14 @@ public:
         // solve with right hand side rhs and store in x
         Vec& p = *(petscX_->petscVec());
         Vec& rhs = *(petscRhs_->petscVec());
-        std::cout << "Call AMGX solver" << std::endl;
-        amgxSolver_->solve( p, rhs );
-        std::cout << "Solve finished" << std::endl;
+
+        try {
+            amgxSolver_->solve( p, rhs );
+        }
+        catch (...)
+        {
+            OPM_THROW(Opm::NumericalIssue, "AmgXSolver: no convergence of linear solver!");
+        }
 
         // copy result to ewoms solution
         X.assign( *petscX_ );
@@ -330,7 +340,6 @@ protected:
         {
             amgxSolver_->finalize();
             amgxSolver_.reset();
-            ::Dune::Petsc::MatDestroy( &A_ );
         }
 
         rhs_ = nullptr;
@@ -341,7 +350,7 @@ protected:
 
     const Simulator& simulator_;
 
-    Mat A_;
+    std::unique_ptr< Mat > A_;
 
     std::unique_ptr< PetscDiscreteFunctionType > petscRhs_;
     std::unique_ptr< PetscDiscreteFunctionType > petscX_;
