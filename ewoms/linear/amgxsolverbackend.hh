@@ -36,9 +36,6 @@
 #endif
 
 #define DISABLE_AMG_DIRECTSOLVER 1
-#include <dune/fem/solver/istlsolver.hh>
-#include <dune/fem/solver/petscsolver.hh>
-#include <dune/fem/solver/krylovinverseoperators.hh>
 #include <dune/fem/function/petscdiscretefunction.hh>
 #include <ewoms/common/genericguard.hh>
 #include <ewoms/common/propertysystem.hh>
